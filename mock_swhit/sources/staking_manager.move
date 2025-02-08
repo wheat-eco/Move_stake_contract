@@ -1,7 +1,6 @@
 module devnet_staking::staking_manager {
 use sui::coin::{Self, Coin, TreasuryCap};
 use sui::clock::Clock;
-use sui::tx_context::{Self, TxContext};
 use sui::sui::SUI;
 use devnet_staking::mock_swhit::{Self, MOCK_SWHIT};
 use devnet_staking::staking_protocol::{Self, AdminCap, RewardState, UserState, Treasury};
