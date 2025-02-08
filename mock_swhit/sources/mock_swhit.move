@@ -1,9 +1,32 @@
-/*
-/// Module: mock_swhit
-module mock_swhit::mock_swhit;
-*/
+module devnet_staking::mock_swhit {
+    use std::option;
+    use sui::coin::{Self, Coin, TreasuryCap};
+    use sui::transfer;
+    use sui::tx_context::{Self, TxContext};
 
-// For Move coding conventions, see
-// https://docs.sui.io/concepts/sui-move-concepts/conventions
+    struct MOCK_SWHIT has drop {}
 
+    fun init(witness: MOCK_SWHIT, ctx: &mut TxContext) {
+        let (treasury_cap, metadata) = coin::create_currency<MOCK_SWHIT>(
+            witness, 
+            9, 
+            b"MOCK_SWHIT", 
+            b"Mock SWHIT", 
+            b"Mock SWHIT coin for devnet testing", 
+            option::none(), 
+            ctx
+        );
+        transfer::public_freeze_object(metadata);
+        transfer::public_transfer(treasury_cap, tx_context::sender(ctx));
+    }
+
+    public entry fun mint(
+        treasury_cap: &mut TreasuryCap<MOCK_SWHIT>, 
+        amount: u64, 
+        recipient: address, 
+        ctx: &mut TxContext
+    ) {
+        coin::mint_and_transfer(treasury_cap, amount, recipient, ctx);
+    }
+}
 
