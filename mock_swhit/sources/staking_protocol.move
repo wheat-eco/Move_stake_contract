@@ -1,6 +1,8 @@
 module devnet_staking::staking_protocol {
     use std::u64;
     use sui::object::{Self, UID};
+    use sui::tx_context::{Self, TxContext}; 
+    use sui::transfer;
     use sui::vec_map::{Self, VecMap};
     use sui::clock::{Self, Clock};
     use sui::balance::{Self, Balance};
@@ -22,7 +24,8 @@ module devnet_staking::staking_protocol {
 
     /* ========== OBJECTS ========== */
 
-    struct RewardState has key, store {
+    /// Reward state tracking
+    public struct RewardState has key, store {
         id: UID,
         duration: u64,
         finish_at: u64,
@@ -30,7 +33,8 @@ module devnet_staking::staking_protocol {
         reward_rate: u64,
     }
 
-    struct UserState has key, store {
+    /// User state tracking
+    public struct UserState has key, store {
         id: UID,
         reward_per_token_stored: u64,
         user_reward_per_token_paid: VecMap<address, u64>,
@@ -38,44 +42,51 @@ module devnet_staking::staking_protocol {
         rewards: VecMap<address, u64>,
     }
 
-    struct Treasury has key, store {
+    /// Treasury holding staked and reward tokens
+    public struct Treasury has key, store {
         id: UID,
         rewards_treasury: Balance<MOCK_SWHIT>,
         staked_coins_treasury: Balance<SUI>,
     }
 
-    struct AdminCap has key, store {
+    /// Admin capability
+    public struct AdminCap has key, store {
         id: UID
     }
 
     /* ========== EVENTS ========== */
 
-    struct RewardAdded has copy, drop, store {
+    /// Event emitted when rewards are added
+    public struct RewardAdded has copy, drop, store {
         reward: u64
     }
 
-    struct RewardDurationUpdated has copy, drop, store {
+    /// Event emitted when reward duration is updated
+    public struct RewardDurationUpdated has copy, drop, store {
          new_duration: u64
     }
 
-    struct Staked has copy, drop, store {
+    /// Event emitted when tokens are staked
+    public struct Staked has copy, drop, store {
         user: address,
         amount: u64
     }
 
-    struct Withdrawn has copy, drop, store {
+    /// Event emitted when tokens are withdrawn
+    public struct Withdrawn has copy, drop, store {
         user: address,
         amount: u64
     }
 
-    struct RewardPaid has copy, drop, store {
+    /// Event emitted when rewards are paid
+    public struct RewardPaid has copy, drop, store {
         user: address,
         reward: u64
     }
 
     /* ========== CONSTRUCTOR ========== */
 
-    fun init(ctx: &mut TxContext) {
+    public fun init(ctx: &mut TxContext) {
         transfer::share_object(RewardState {
             id: object::new(ctx),
             duration: 0,

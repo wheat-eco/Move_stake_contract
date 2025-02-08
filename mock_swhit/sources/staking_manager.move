@@ -1,31 +1,26 @@
 module devnet_staking::staking_manager {
-    use sui::coin::{Self, Coin, TreasuryCap};
-    use sui::clock::Clock;
-    use sui::tx_context::TxContext;
-    use devnet_staking::mock_swhit::{Self, MOCK_SWHIT};
-    use devnet_staking::staking_protocol::{Self, AdminCap, RewardState, UserState, Treasury};
+use sui::coin::{Self, Coin, TreasuryCap};
+use sui::clock::Clock;
+use sui::tx_context::{Self, TxContext};
+use sui::sui::SUI;
+use devnet_staking::mock_swhit::{Self, MOCK_SWHIT};
+use devnet_staking::staking_protocol::{Self, AdminCap, RewardState, UserState, Treasury};
 
-    public entry fun initialize_staking(
-        treasury_cap: &mut TreasuryCap<MOCK_SWHIT>,
-        admin_cap: &AdminCap,
-        reward_state: &mut RewardState,
-        user_state: &mut UserState,
-        treasury: &mut Treasury,
-        initial_reward_amount: u64,
-        reward_duration: u64,
-        clock: &Clock,
-        ctx: &mut TxContext
-    ) {
-        // Mint initial rewards
-        let initial_rewards = coin::mint(treasury_cap, initial_reward_amount, ctx);
-
-        // Set reward duration
-        staking_protocol::set_reward_duration(admin_cap, reward_state, reward_duration, clock);
-
-        // Add initial rewards
-        staking_protocol::add_rewards(admin_cap, initial_rewards, user_state, reward_state, treasury, clock);
-    }
-
+public entry fun initialize_staking(
+treasury_cap: &mut TreasuryCap<MOCK_SWHIT>,
+  admin_cap: &AdminCap,
+  reward_state: &mut RewardState,
+  user_state: &mut UserState,
+  treasury: &mut Treasury,
+  initial_reward_amount: u64,
+  reward_duration: u64,
+  clock: &Clock,
+  ctx: &mut TxContext
+  ) {
+  let initial_rewards = coin::mint(treasury_cap, initial_reward_amount, ctx);
+  staking_protocol::set_reward_duration(admin_cap, reward_state, reward_duration, clock);
+  staking_protocol::add_rewards(admin_cap, initial_rewards, user_state, reward_state, treasury, clock);
+  }
     public entry fun stake(
         payment: Coin<SUI>,
         user_state: &mut UserState,
@@ -78,3 +73,5 @@ module devnet_staking::staking_manager {
         staking_protocol::init_for_testing(ctx);
     }
 }
+
+
