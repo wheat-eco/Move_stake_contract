@@ -4,8 +4,10 @@ module devnet_staking::mock_swhit {
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
 
+    /// Mock SWHIT token for testing
     struct MOCK_SWHIT has drop {}
 
+    #[allow(unused_use)]
     fun init(witness: MOCK_SWHIT, ctx: &mut TxContext) {
         let (treasury_cap, metadata) = coin::create_currency<MOCK_SWHIT>(
             witness, 
@@ -29,4 +31,3 @@ module devnet_staking::mock_swhit {
         coin::mint_and_transfer(treasury_cap, amount, recipient, ctx);
     }
 }
-
