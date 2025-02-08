@@ -1,6 +1,5 @@
 module devnet_staking::staking_protocol {
     use std::u64;
-    use sui::transfer;
     use sui::vec_map::{Self, VecMap};
     use sui::clock::{Self, Clock};
     use sui::balance::{Self, Balance};

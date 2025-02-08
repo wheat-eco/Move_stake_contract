@@ -1,7 +1,7 @@
 module devnet_staking::mock_swhit {
 
 use sui::coin::{Self, CoinMetadata, TreasuryCap};
-use sui::transfer;
+
 
 
 /// Mock SWHIT token for testing
