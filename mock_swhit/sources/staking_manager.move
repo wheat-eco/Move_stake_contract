@@ -20,10 +20,10 @@ module devnet_staking::staking_manager {
         let initial_rewards = coin::mint(treasury_cap, initial_reward_amount, ctx);
 
         // Set reward duration
-        staking_protocol::setRewardDuration(admin_cap, reward_state, reward_duration, clock);
+        staking_protocol::set_reward_duration(admin_cap, reward_state, reward_duration, clock);
 
         // Add initial rewards
-        staking_protocol::addRewards(admin_cap, initial_rewards, user_state, reward_state, treasury, clock);
+        staking_protocol::add_rewards(admin_cap, initial_rewards, user_state, reward_state, treasury, clock);
     }
 
     public entry fun stake(
@@ -55,7 +55,7 @@ module devnet_staking::staking_manager {
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        staking_protocol::getReward(user_state, reward_state, treasury, clock, ctx);
+        staking_protocol::get_reward(user_state, reward_state, treasury, clock, ctx);
     }
 
     public entry fun add_rewards(
@@ -69,7 +69,12 @@ module devnet_staking::staking_manager {
         ctx: &mut TxContext
     ) {
         let rewards = coin::mint(treasury_cap, amount, ctx);
-        staking_protocol::addRewards(admin_cap, rewards, user_state, reward_state, treasury, clock);
+        staking_protocol::add_rewards(admin_cap, rewards, user_state, reward_state, treasury, clock);
+    }
+
+    #[test_only]
+    public fun initialize_for_testing(ctx: &mut TxContext) {
+        mock_swhit::init_for_testing(ctx);
+        staking_protocol::init_for_testing(ctx);
     }
 }
-
