@@ -1,12 +1,15 @@
 module devnet_staking::staking_protocol {
     use std::u64;
+    use sui::object::{Self, UID};
     use sui::vec_map::{Self, VecMap};
     use sui::clock::{Self, Clock};
     use sui::balance::{Self, Balance};
     use sui::sui::SUI;
     use sui::coin::{Self, Coin};
     use sui::event;
-    use devnet_staking::mock_swhit::MOCK_SWHIT;
+    use sui::transfer;
+    use sui::tx_context::{Self, TxContext};
+    use devnet_staking::mock_swhit::MOCK_SWHIT_COIN;
 
     /* ========== ERRORS ========== */
 
@@ -22,7 +25,7 @@ module devnet_staking::staking_protocol {
     /* ========== OBJECTS ========== */
 
     /// Reward state tracking
-    public struct RewardState has key, store {
+    struct RewardState has key, store {
         id: UID,
         duration: u64,
         finish_at: u64,
@@ -31,7 +34,7 @@ module devnet_staking::staking_protocol {
     }
 
     /// User state tracking
-    public struct UserState has key, store {
+    struct UserState has key, store {
         id: UID,
         reward_per_token_stored: u64,
         user_reward_per_token_paid: VecMap<address, u64>,
@@ -40,43 +43,43 @@ module devnet_staking::staking_protocol {
     }
 
     /// Treasury holding staked and reward tokens
-    public struct Treasury has key, store {
+    struct Treasury has key, store {
         id: UID,
-        rewards_treasury: Balance<MOCK_SWHIT>,
+        rewards_treasury: Balance<MOCK_SWHIT_COIN>,
         staked_coins_treasury: Balance<SUI>,
     }
 
     /// Admin capability
-    public struct AdminCap has key, store {
+    struct AdminCap has key, store {
         id: UID
     }
 
     /* ========== EVENTS ========== */
 
     /// Event emitted when rewards are added
-    public struct RewardAdded has copy, drop, store {
+    struct RewardAdded has copy, drop {
         reward: u64
     }
 
     /// Event emitted when reward duration is updated
-    public struct RewardDurationUpdated has copy, drop, store {
+    struct RewardDurationUpdated has copy, drop {
          new_duration: u64
     }
 
     /// Event emitted when tokens are staked
-    public struct Staked has copy, drop, store {
+    struct Staked has copy, drop {
         user: address,
         amount: u64
     }
 
     /// Event emitted when tokens are withdrawn
-    public struct Withdrawn has copy, drop, store {
+    struct Withdrawn has copy, drop {
         user: address,
         amount: u64
     }
 
     /// Event emitted when rewards are paid
-    public struct RewardPaid has copy, drop, store {
+    struct RewardPaid has copy, drop {
         user: address,
         reward: u64
     }
@@ -84,32 +87,33 @@ module devnet_staking::staking_protocol {
     /* ========== CONSTRUCTOR ========== */
 
     fun init(ctx: &mut TxContext) {
-transfer::share_object(RewardState {
-id: object::new(ctx),
-duration: 0,
-finish_at: 0,
-updated_at: 0,
-reward_rate: 0
-});
+        transfer::share_object(RewardState {
+            id: object::new(ctx),
+            duration: 0,
+            finish_at: 0,
+            updated_at: 0,
+            reward_rate: 0
+        });
 
-transfer::share_object(UserState {
-id: object::new(ctx),
-reward_per_token_stored: 0,
-user_reward_per_token_paid: vec_map::empty(),
-balance_of: vec_map::empty(),
-rewards: vec_map::empty()
-});
+        transfer::share_object(UserState {
+            id: object::new(ctx),
+            reward_per_token_stored: 0,
+            user_reward_per_token_paid: vec_map::empty(),
+            balance_of: vec_map::empty(),
+            rewards: vec_map::empty()
+        });
 
-transfer::share_object(Treasury {
-id: object::new(ctx),
-rewards_treasury: balance::zero(),
-staked_coins_treasury: balance::zero(),
-});
+        transfer::share_object(Treasury {
+            id: object::new(ctx),
+            rewards_treasury: balance::zero(),
+            staked_coins_treasury: balance::zero(),
+        });
 
-transfer::transfer(AdminCap {
-id: object::new(ctx)
-}, tx_context::sender(ctx));
-}
+        transfer::transfer(AdminCap {
+            id: object::new(ctx)
+        }, tx_context::sender(ctx));
+    }
+
     /* ========== USER FUNCTIONS ========== */
 
     public entry fun stake(
@@ -209,7 +213,7 @@ id: object::new(ctx)
 
     public entry fun add_rewards(
         _: &AdminCap, 
-        reward: Coin<MOCK_SWHIT>, 
+        reward: Coin<MOCK_SWHIT_COIN>, 
         user_state: &mut UserState, 
         reward_state: &mut RewardState, 
         treasury: &mut Treasury, 
@@ -303,4 +307,3 @@ id: object::new(ctx)
         init(ctx)
     }
 }
-

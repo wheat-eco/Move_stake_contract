@@ -1,20 +1,12 @@
 module devnet_staking::mock_swhit {
+use sui::coin::{Self, TreasuryCap};
 
-use sui::coin::{Self, CoinMetadata, TreasuryCap};
+/// The type identifier of mock SWHIT coin
+struct MOCK_SWHIT has drop {}
 
-
-
-/// Mock SWHIT token for testing
-struct MOCK_SWHIT has drop, store {}
-
-/// One-time witness for the MOCK_SWHIT token
-struct WITNESS has drop {}
-
-// Remove public and change to internal init
-fun init(ctx: &mut TxContext) {
-let witness = WITNESS {};
+fun init(otw: MOCK_SWHIT, ctx: &mut TxContext) {
 let (treasury_cap, metadata) = coin::create_currency(
-MOCK_SWHIT {},
+otw,
 9,
 b"MOCK_SWHIT",
 b"Mock SWHIT",
@@ -38,6 +30,6 @@ treasury_cap: &mut TreasuryCap<MOCK_SWHIT>,
 
   #[test_only]
   public fun init_for_testing(ctx: &mut TxContext) {
-  init(ctx)
+  init(MOCK_SWHIT {}, ctx)
   }
   }
