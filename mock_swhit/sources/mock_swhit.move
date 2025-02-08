@@ -1,9 +1,5 @@
 module devnet_staking::mock_swhit {
-    use std::option;
-    use sui::coin::{Self, Coin, TreasuryCap};
-    use sui::transfer;
-    use sui::tx_context::{Self, TxContext};
-
+    
     /// Mock SWHIT token for testing
     struct MOCK_SWHIT has drop {}
 
