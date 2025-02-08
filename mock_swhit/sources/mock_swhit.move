@@ -1,12 +1,15 @@
 module devnet_staking::mock_swhit {
 use sui::coin::{Self, TreasuryCap};
 
-/// The type identifier of mock SWHIT coin
+/// One-time witness for coin creation
 struct MOCK_SWHIT has drop {}
 
-fun init(otw: MOCK_SWHIT, ctx: &mut TxContext) {
+/// The type identifier of mock SWHIT coin
+public struct MOCK_SWHIT_COIN has drop {}
+
+fun init(witness: MOCK_SWHIT, ctx: &mut TxContext) {
 let (treasury_cap, metadata) = coin::create_currency(
-otw,
+witness,
 9,
 b"MOCK_SWHIT",
 b"Mock SWHIT",
@@ -20,7 +23,7 @@ transfer::public_transfer(treasury_cap, tx_context::sender(ctx));
 }
 
 public entry fun mint(
-treasury_cap: &mut TreasuryCap<MOCK_SWHIT>,
+treasury_cap: &mut TreasuryCap<MOCK_SWHIT_COIN>,
   amount: u64,
   recipient: address,
   ctx: &mut TxContext

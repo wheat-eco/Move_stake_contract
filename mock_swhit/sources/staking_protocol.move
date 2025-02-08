@@ -23,7 +23,7 @@ module devnet_staking::staking_protocol {
     /* ========== OBJECTS ========== */
 
     /// Reward state tracking
-    struct RewardState has key, store {
+    public struct RewardState has key, store {
         id: UID,
         duration: u64,
         finish_at: u64,
@@ -32,7 +32,7 @@ module devnet_staking::staking_protocol {
     }
 
     /// User state tracking
-    struct UserState has key, store {
+    public struct UserState has key, store {
         id: UID,
         reward_per_token_stored: u64,
         user_reward_per_token_paid: VecMap<address, u64>,
@@ -41,43 +41,43 @@ module devnet_staking::staking_protocol {
     }
 
     /// Treasury holding staked and reward tokens
-    struct Treasury has key, store {
+    public struct Treasury has key, store {
         id: UID,
         rewards_treasury: Balance<MOCK_SWHIT_COIN>,
         staked_coins_treasury: Balance<SUI>,
     }
 
     /// Admin capability
-    struct AdminCap has key, store {
+    public struct AdminCap has key, store {
         id: UID
     }
 
     /* ========== EVENTS ========== */
 
     /// Event emitted when rewards are added
-    struct RewardAdded has copy, drop {
+    public struct RewardAdded has copy, drop {
         reward: u64
     }
 
     /// Event emitted when reward duration is updated
-    struct RewardDurationUpdated has copy, drop {
+    public struct RewardDurationUpdated has copy, drop {
          new_duration: u64
     }
 
     /// Event emitted when tokens are staked
-    struct Staked has copy, drop {
+    public struct Staked has copy, drop {
         user: address,
         amount: u64
     }
 
     /// Event emitted when tokens are withdrawn
-    struct Withdrawn has copy, drop {
+    public struct Withdrawn has copy, drop {
         user: address,
         amount: u64
     }
 
     /// Event emitted when rewards are paid
-    struct RewardPaid has copy, drop {
+    public struct RewardPaid has copy, drop {
         user: address,
         reward: u64
     }
