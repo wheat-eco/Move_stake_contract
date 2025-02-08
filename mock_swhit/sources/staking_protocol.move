@@ -84,34 +84,33 @@ module devnet_staking::staking_protocol {
 
     /* ========== CONSTRUCTOR ========== */
 
-    public fun init(ctx: &mut TxContext) {
-        transfer::share_object(RewardState {
-            id: object::new(ctx),
-            duration: 0,
-            finish_at: 0,
-            updated_at: 0,
-            reward_rate: 0
-        });
+    fun init(ctx: &mut TxContext) {
+transfer::share_object(RewardState {
+id: object::new(ctx),
+duration: 0,
+finish_at: 0,
+updated_at: 0,
+reward_rate: 0
+});
 
-        transfer::share_object(UserState {
-            id: object::new(ctx),
-            reward_per_token_stored: 0,
-            user_reward_per_token_paid: vec_map::empty(),
-            balance_of: vec_map::empty(),
-            rewards: vec_map::empty()
-        });
+transfer::share_object(UserState {
+id: object::new(ctx),
+reward_per_token_stored: 0,
+user_reward_per_token_paid: vec_map::empty(),
+balance_of: vec_map::empty(),
+rewards: vec_map::empty()
+});
 
-        transfer::share_object(Treasury {
-            id: object::new(ctx),
-            rewards_treasury: balance::zero(),
-            staked_coins_treasury: balance::zero(),
-        });
+transfer::share_object(Treasury {
+id: object::new(ctx),
+rewards_treasury: balance::zero(),
+staked_coins_treasury: balance::zero(),
+});
 
-        transfer::transfer(AdminCap {
-            id: object::new(ctx)
-        }, tx_context::sender(ctx));
-    }
-
+transfer::transfer(AdminCap {
+id: object::new(ctx)
+}, tx_context::sender(ctx));
+}
     /* ========== USER FUNCTIONS ========== */
 
     public entry fun stake(
@@ -305,3 +304,4 @@ module devnet_staking::staking_protocol {
         init(ctx)
     }
 }
+
