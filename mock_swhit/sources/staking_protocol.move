@@ -1,14 +1,12 @@
 module devnet_staking::staking_protocol {
     use std::u64;
-    use sui::object::{Self, UID};
     use sui::vec_map::{Self, VecMap};
     use sui::clock::{Self, Clock};
     use sui::balance::{Self, Balance};
     use sui::sui::SUI;
     use sui::coin::{Self, Coin};
     use sui::event;
-    use sui::transfer;
-    use sui::tx_context::{Self, TxContext};
+    
     use devnet_staking::mock_swhit::MOCK_SWHIT_COIN;
 
     /* ========== ERRORS ========== */
