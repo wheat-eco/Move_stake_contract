@@ -1,68 +1,15 @@
 module devnet_staking::staking_protocol {
+    use std::u64;
     use sui::object::{Self, UID};
     use sui::tx_context::{Self, TxContext}; 
     use sui::transfer;
     use sui::vec_map::{Self, VecMap};
-    use sui::math;
     use sui::clock::{Self, Clock};
     use sui::balance::{Self, Balance};
     use sui::sui::SUI;
     use sui::coin::{Self, Coin};
     use sui::event;
     use devnet_staking::mock_swhit::MOCK_SWHIT;
-
-    /* ========== OBJECTS ========== */
-
-    struct RewardState has key {
-        id: UID,
-        duration: u64,
-        finishAt: u64,
-        updatedAt: u64,
-        rewardRate: u64,
-    }
-
-    struct UserState has key {
-        id: UID,
-        rewardPerTokenStored: u64,
-        userRewardPerTokenPaid: VecMap<address, u64>,
-        balanceOf: VecMap<address, u64>,
-        rewards: VecMap<address, u64>,
-    }
-
-    struct Treasury has key {
-        id: UID,
-        rewardsTreasury: Balance<MOCK_SWHIT>,
-        stakedCoinsTreasury: Balance<SUI>,
-    }
-
-    struct AdminCap has key {
-        id: UID
-    }
-
-    /* ========== EVENTS ========== */
-
-    struct RewardAdded has copy, drop {
-        reward: u64
-    }
-
-    struct RewardDurationUpdated has copy, drop {
-         newDuration: u64
-    }
-
-    struct Staked has copy, drop {
-        user: address,
-        amount: u64
-    }
-
-    struct Withdrawn has copy, drop {
-        user: address,
-        amount: u64
-    }
-
-    struct RewardPaid has copy, drop {
-        user: address,
-        reward: u64
-    }
 
     /* ========== ERRORS ========== */
 
@@ -75,220 +22,279 @@ module devnet_staking::staking_protocol {
     const ENoStakedTokens: u64 = 106;
     const ENoPriorTokenStake: u64 = 107;
 
+    /* ========== OBJECTS ========== */
+
+    struct RewardState has key, store {
+        id: UID,
+        duration: u64,
+        finish_at: u64,
+        updated_at: u64,
+        reward_rate: u64,
+    }
+
+    struct UserState has key, store {
+        id: UID,
+        reward_per_token_stored: u64,
+        user_reward_per_token_paid: VecMap<address, u64>,
+        balance_of: VecMap<address, u64>,
+        rewards: VecMap<address, u64>,
+    }
+
+    struct Treasury has key, store {
+        id: UID,
+        rewards_treasury: Balance<MOCK_SWHIT>,
+        staked_coins_treasury: Balance<SUI>,
+    }
+
+    struct AdminCap has key, store {
+        id: UID
+    }
+
+    /* ========== EVENTS ========== */
+
+    struct RewardAdded has copy, drop, store {
+        reward: u64
+    }
+
+    struct RewardDurationUpdated has copy, drop, store {
+         new_duration: u64
+    }
+
+    struct Staked has copy, drop, store {
+        user: address,
+        amount: u64
+    }
+
+    struct Withdrawn has copy, drop, store {
+        user: address,
+        amount: u64
+    }
+
+    struct RewardPaid has copy, drop, store {
+        user: address,
+        reward: u64
+    }
+
     /* ========== CONSTRUCTOR ========== */
 
     fun init(ctx: &mut TxContext) {
         transfer::share_object(RewardState {
             id: object::new(ctx),
             duration: 0,
-            finishAt: 0,
-            updatedAt: 0,
-            rewardRate: 0
+            finish_at: 0,
+            updated_at: 0,
+            reward_rate: 0
         });
 
         transfer::share_object(UserState {
             id: object::new(ctx),
-            rewardPerTokenStored: 0,
-            userRewardPerTokenPaid: vec_map::empty<address, u64>(),
-            balanceOf: vec_map::empty<address, u64>(),
-            rewards: vec_map::empty<address, u64>()
+            reward_per_token_stored: 0,
+            user_reward_per_token_paid: vec_map::empty(),
+            balance_of: vec_map::empty(),
+            rewards: vec_map::empty()
         });
 
         transfer::share_object(Treasury {
             id: object::new(ctx),
-            rewardsTreasury: balance::zero<MOCK_SWHIT>(),
-            stakedCoinsTreasury: balance::zero<SUI>(),
+            rewards_treasury: balance::zero(),
+            staked_coins_treasury: balance::zero(),
         });
 
-        transfer::transfer(AdminCap {id: object::new(ctx)}, tx_context::sender(ctx));
+        transfer::transfer(AdminCap {
+            id: object::new(ctx)
+        }, tx_context::sender(ctx));
     }
 
     /* ========== USER FUNCTIONS ========== */
 
     public entry fun stake(
         payment: Coin<SUI>, 
-        userState: &mut UserState, 
-        rewardState: &mut RewardState, 
+        user_state: &mut UserState, 
+        reward_state: &mut RewardState, 
         treasury: &mut Treasury, 
         clock: &Clock, 
         ctx: &mut TxContext
     ) {
         let account = tx_context::sender(ctx);
-        let totalStakedSupply = balance::value(&treasury.stakedCoinsTreasury);
+        let total_staked_supply = balance::value(&treasury.staked_coins_treasury);
         let amount = coin::value(&payment);
 
-        if (!vec_map::contains(&userState.balanceOf, &account)) {
-            vec_map::insert(&mut userState.balanceOf, account, 0);
-            vec_map::insert(&mut userState.userRewardPerTokenPaid, account, 0);
-            vec_map::insert(&mut userState.rewards, account, 0);
+        if (!vec_map::contains(&user_state.balance_of, &account)) {
+            vec_map::insert(&mut user_state.balance_of, account, 0);
+            vec_map::insert(&mut user_state.user_reward_per_token_paid, account, 0);
+            vec_map::insert(&mut user_state.rewards, account, 0);
         };
 
-        updateReward(totalStakedSupply, account, userState, rewardState, clock);
+        update_reward(total_staked_supply, account, user_state, reward_state, clock);
 
         let balance = coin::into_balance(payment);
-        balance::join(&mut treasury.stakedCoinsTreasury, balance);
+        balance::join(&mut treasury.staked_coins_treasury, balance);
 
-        let balanceOf_account = vec_map::get_mut(&mut userState.balanceOf, &account);
-        *balanceOf_account = *balanceOf_account + amount;
+        let balance_of_account = vec_map::get_mut(&mut user_state.balance_of, &account);
+        *balance_of_account = *balance_of_account + amount;
 
-        event::emit(Staked{user: account, amount});
+        event::emit(Staked { user: account, amount });
     }
 
     public entry fun withdraw(
-        userState: &mut UserState, 
-        rewardState: &mut RewardState, 
+        user_state: &mut UserState, 
+        reward_state: &mut RewardState, 
         treasury: &mut Treasury, 
         amount: u64, 
         clock: &Clock, 
         ctx: &mut TxContext
     ) {
         let account = tx_context::sender(ctx);
-        let balanceOf_account_imut = vec_map::get(&userState.balanceOf, &account);
-        let totalStakedSupply = balance::value(&treasury.stakedCoinsTreasury);
+        let balance_of_account_imut = vec_map::get(&user_state.balance_of, &account);
+        let total_staked_supply = balance::value(&treasury.staked_coins_treasury);
 
-        assert!(vec_map::contains(&userState.balanceOf, &account), ENoStakedTokens);
+        assert!(vec_map::contains(&user_state.balance_of, &account), ENoStakedTokens);
         assert!(amount > 0, EZeroAmount);
-        assert!(amount <= *balanceOf_account_imut, ERequestedAmountExceedsStaked);
+        assert!(amount <= *balance_of_account_imut, ERequestedAmountExceedsStaked);
         
-        updateReward(totalStakedSupply, account, userState, rewardState, clock);
+        update_reward(total_staked_supply, account, user_state, reward_state, clock);
 
-        let balanceOf_account = vec_map::get_mut(&mut userState.balanceOf, &account);
-        *balanceOf_account = *balanceOf_account - amount;
+        let balance_of_account = vec_map::get_mut(&mut user_state.balance_of, &account);
+        *balance_of_account = *balance_of_account - amount;
 
-        let withdrawalAmount = coin::take(&mut treasury.stakedCoinsTreasury, amount, ctx);
-        transfer::public_transfer(withdrawalAmount, account);
+        let withdrawal_amount = coin::take(&mut treasury.staked_coins_treasury, amount, ctx);
+        transfer::public_transfer(withdrawal_amount, account);
 
-        event::emit(Withdrawn{user: account, amount});
+        event::emit(Withdrawn { user: account, amount });
     }
 
-    public entry fun getReward(
-        userState: &mut UserState, 
-        rewardState: &mut RewardState, 
+    public entry fun get_reward(
+        user_state: &mut UserState, 
+        reward_state: &mut RewardState, 
         treasury: &mut Treasury, 
         clock: &Clock, 
         ctx: &mut TxContext
     ) {
         let account = tx_context::sender(ctx);
-        let totalStakedSupply = balance::value(&treasury.stakedCoinsTreasury);
+        let total_staked_supply = balance::value(&treasury.staked_coins_treasury);
 
-        assert!(vec_map::contains(&userState.rewards, &account), ENoPriorTokenStake);
-        let rewards_account_imut = vec_map::get(&userState.rewards, &account);
+        assert!(vec_map::contains(&user_state.rewards, &account), ENoPriorTokenStake);
+        let rewards_account_imut = vec_map::get(&user_state.rewards, &account);
         assert!(*rewards_account_imut > 0, ENoRewardsToClaim);
 
-        updateReward(totalStakedSupply, account, userState, rewardState, clock);
+        update_reward(total_staked_supply, account, user_state, reward_state, clock);
 
-        let rewards_account = vec_map::get_mut(&mut userState.rewards, &account);
-        let stakingRewards = coin::take(&mut treasury.rewardsTreasury, *rewards_account, ctx);
+        let rewards_account = vec_map::get_mut(&mut user_state.rewards, &account);
+        let staking_rewards = coin::take(&mut treasury.rewards_treasury, *rewards_account, ctx);
         
-        event::emit(RewardPaid{user: account, reward: *rewards_account});
+        event::emit(RewardPaid { user: account, reward: *rewards_account });
 
         *rewards_account = 0;
-        transfer::public_transfer(stakingRewards, account);
+        transfer::public_transfer(staking_rewards, account);
     }
 
     /* ========== ADMIN FUNCTIONS ========== */
 
-    public entry fun setRewardDuration(
+    public entry fun set_reward_duration(
         _: &AdminCap, 
-        rewardState: &mut RewardState, 
+        reward_state: &mut RewardState, 
         duration: u64, 
         clock: &Clock
     ) {
-        assert!(rewardState.finishAt < clock::timestamp_ms(clock), ERewardDurationNotExpired);
+        assert!(reward_state.finish_at < clock::timestamp_ms(clock), ERewardDurationNotExpired);
 
-        rewardState.duration = duration;
-        event::emit(RewardDurationUpdated{newDuration: duration});
+        reward_state.duration = duration;
+        event::emit(RewardDurationUpdated { new_duration: duration });
     }
 
-    public entry fun addRewards(
+    public entry fun add_rewards(
         _: &AdminCap, 
         reward: Coin<MOCK_SWHIT>, 
-        userState: &mut UserState, 
-        rewardState: &mut RewardState, 
+        user_state: &mut UserState, 
+        reward_state: &mut RewardState, 
         treasury: &mut Treasury, 
         clock: &Clock
     ) {
-        let totalStakedSupply = balance::value(&treasury.stakedCoinsTreasury);
+        let total_staked_supply = balance::value(&treasury.staked_coins_treasury);
         let amount = coin::value(&reward);
 
-        updateReward(totalStakedSupply, @0x0, userState, rewardState, clock);
+        update_reward(total_staked_supply, @0x0, user_state, reward_state, clock);
 
         let balance = coin::into_balance(reward);
-        balance::join(&mut treasury.rewardsTreasury, balance);
+        balance::join(&mut treasury.rewards_treasury, balance);
 
-        if (clock::timestamp_ms(clock) >= rewardState.finishAt) {
-            rewardState.rewardRate = amount / rewardState.duration;
+        if (clock::timestamp_ms(clock) >= reward_state.finish_at) {
+            reward_state.reward_rate = amount / reward_state.duration;
         } else {
-            let remaining_reward = (rewardState.finishAt - clock::timestamp_ms(clock)) * rewardState.rewardRate;
-            rewardState.rewardRate = (amount + remaining_reward) / rewardState.duration;
+            let remaining_reward = (reward_state.finish_at - clock::timestamp_ms(clock)) * reward_state.reward_rate;
+            reward_state.reward_rate = (amount + remaining_reward) / reward_state.duration;
         };
 
-        assert!(rewardState.rewardRate > 0, EZeroRewardRate);
-        assert!(rewardState.rewardRate * rewardState.duration <= balance::value(&treasury.rewardsTreasury), ELowRewardsTreasuryBalance);
+        assert!(reward_state.reward_rate > 0, EZeroRewardRate);
+        assert!(reward_state.reward_rate * reward_state.duration <= balance::value(&treasury.rewards_treasury), ELowRewardsTreasuryBalance);
 
-        rewardState.finishAt = clock::timestamp_ms(clock) + rewardState.duration;
-        rewardState.updatedAt = clock::timestamp_ms(clock);
+        reward_state.finish_at = clock::timestamp_ms(clock) + reward_state.duration;
+        reward_state.updated_at = clock::timestamp_ms(clock);
 
-        event::emit(RewardAdded{reward: amount});
+        event::emit(RewardAdded { reward: amount });
     }
 
     /* ========== HELPER FUNCTIONS ========== */
 
-    fun updateReward(
-        totalStakedSupply: u64, 
+    fun update_reward(
+        total_staked_supply: u64, 
         account: address, 
-        userState: &mut UserState, 
-        rewardState: &mut RewardState, 
+        user_state: &mut UserState, 
+        reward_state: &mut RewardState, 
         clock: &Clock
     ) {
-        userState.rewardPerTokenStored = rewardPerToken(totalStakedSupply, userState, rewardState, clock);
-        rewardState.updatedAt = math::min(clock::timestamp_ms(clock), rewardState.finishAt);
+        user_state.reward_per_token_stored = reward_per_token(total_staked_supply, user_state, reward_state, clock);
+        reward_state.updated_at = u64::min(clock::timestamp_ms(clock), reward_state.finish_at);
 
         if (account != @0x0) {
-            let new_reward_value = earned(totalStakedSupply, account, userState, rewardState, clock);
-            let rewards_account = vec_map::get_mut(&mut userState.rewards, &account);
+            let new_reward_value = earned(total_staked_supply, account, user_state, reward_state, clock);
+            let rewards_account = vec_map::get_mut(&mut user_state.rewards, &account);
             *rewards_account = new_reward_value;
 
-            let userRewardPerTokenPaid_account = vec_map::get_mut(&mut userState.userRewardPerTokenPaid, &account);
-            *userRewardPerTokenPaid_account = userState.rewardPerTokenStored;
+            let user_reward_per_token_paid_account = vec_map::get_mut(&mut user_state.user_reward_per_token_paid, &account);
+            *user_reward_per_token_paid_account = user_state.reward_per_token_stored;
         }
     }
 
     fun earned(
-        totalStakedSupply: u64, 
+        total_staked_supply: u64, 
         account: address, 
-        userState: &UserState, 
-        rewardState: &RewardState, 
+        user_state: &UserState, 
+        reward_state: &RewardState, 
         clock: &Clock
     ): u64 {
-        let balanceOf_account = (*vec_map::get(&userState.balanceOf, &account) as u256);
-        let userRewardPerTokenPaid_account = (*vec_map::get(&userState.userRewardPerTokenPaid, &account) as u256);
-        let rewards_account = (*vec_map::get(&userState.rewards, &account) as u256);
-        let token_decimals = (math::pow(10, 9) as u256);
+        let balance_of_account = (*vec_map::get(&user_state.balance_of, &account) as u256);
+        let user_reward_per_token_paid_account = (*vec_map::get(&user_state.user_reward_per_token_paid, &account) as u256);
+        let rewards_account = (*vec_map::get(&user_state.rewards, &account) as u256);
+        let token_decimals = (u64::pow(10, 9) as u256);
 
-        let rewards_earned  = ((balanceOf_account * ((rewardPerToken(totalStakedSupply, userState, rewardState, clock) as u256) - userRewardPerTokenPaid_account)) / token_decimals) + rewards_account;
+        let rewards_earned  = ((balance_of_account * ((reward_per_token(total_staked_supply, user_state, reward_state, clock) as u256) - user_reward_per_token_paid_account)) / token_decimals) + rewards_account;
 
         (rewards_earned as u64)
     }
 
-    fun rewardPerToken(
-        totalStakedSupply: u64, 
-        userState: &UserState, 
-        rewardState: &RewardState, 
+    fun reward_per_token(
+        total_staked_supply: u64, 
+        user_state: &UserState, 
+        reward_state: &RewardState, 
         clock: &Clock
     ): u64 {
-        if (totalStakedSupply == 0) { 
-            return userState.rewardPerTokenStored
+        if (total_staked_supply == 0) { 
+            return user_state.reward_per_token_stored
         };
 
-        let token_decimals = (math::pow(10, 9) as u256);
-        let lastTimeRewardApplicable = (math::min(clock::timestamp_ms(clock), rewardState.finishAt) as u256);
+        let token_decimals = (u64::pow(10, 9) as u256);
+        let last_time_reward_applicable = (u64::min(clock::timestamp_ms(clock), reward_state.finish_at) as u256);
 
-        let computedRewardPerToken = (userState.rewardPerTokenStored as u256) + 
-            ((rewardState.rewardRate as u256) * (lastTimeRewardApplicable - (rewardState.updatedAt as u256)) * token_decimals) / 
-            (totalStakedSupply as u256);
+        let computed_reward_per_token = (user_state.reward_per_token_stored as u256) + 
+            ((reward_state.reward_rate as u256) * (last_time_reward_applicable - (reward_state.updated_at as u256)) * token_decimals) / 
+            (total_staked_supply as u256);
 
-        (computedRewardPerToken as u64)
+        (computed_reward_per_token as u64)
+    }
+
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(ctx)
     }
 }
-
