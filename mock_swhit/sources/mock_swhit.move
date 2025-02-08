@@ -1,8 +1,5 @@
 module devnet_staking::mock_swhit {
 use sui::coin;
-use sui::transfer;
-use sui::tx_context::{Self, TxContext};
-use std::option;
 
 /// One-time witness for coin creation
 public struct MOCK_SWHIT has drop {}
